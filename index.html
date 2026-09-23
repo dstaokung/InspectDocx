@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="./shared/theme.js"></script>
+<title>บันทึกออกตรวจงานจ้าง</title>
+<style>
+  :root {
+    --accent: #2563eb; --accent-dark: #1d4ed8; --accent-light: #93c5fd; --accent-bg: #eff6ff; --accent-text: #1e40af;
+    --page-bg: #f2f4f7; --card-bg: #ffffff; --border: #e5e7eb; --input-border: #d1d5db;
+    --text: #1f2937; --text-muted: #6b7280; --text-faint: #9ca3af; --surface: #f9fafb;
+    --input-bg: #ffffff; --input-text: #1f2937; --red: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Sarabun", sans-serif; background: var(--page-bg); margin: 0; padding: 24px;
+         color: var(--text); font-size: 18px; line-height: 1.5; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+  .col-right { position: sticky; top: 24px; }
+  @media (max-width: 900px) {
+    body { padding: 16px; }
+    .layout { grid-template-columns: 1fr; }
+    .col-right { position: static; }
+  }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--text-muted); margin: 0 0 20px; font-size: 16px; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 19px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: end; }
+  @media (max-width: 560px) { .row2, .row3 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+  .hint { font-weight: 400; color: var(--text-faint); font-size: 14px; }
+  input[type=text], select, textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--input-border); border-radius: 6px;
+    font-family: inherit; font-size: 17px; background: var(--input-bg); color: var(--input-text);
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-light); border-color: var(--accent); }
+  input[readonly] { background: var(--surface); color: var(--text-muted); }
+  .member { display: grid; grid-template-columns: 110px 170px 1fr; gap: 10px; align-items: end;
+            padding: 6px 0; border-bottom: 1px dashed var(--border); }
+  .member:last-child { border-bottom: none; }
+  .member .role { font-weight: 600; font-size: 16px; padding-bottom: 10px; color: var(--accent-text); }
+  @media (max-width: 560px) { .member { grid-template-columns: 1fr; } .member .role { padding-bottom: 0; } }
+  .note { background: var(--accent-bg); color: var(--accent-text); border-radius: 8px; padding: 10px 12px;
+          font-size: 15px; margin-top: 10px; }
+  button { font-family: inherit; font-size: 16px; cursor: pointer; border-radius: 8px; }
+  .btn { padding: 9px 14px; border: 1px solid var(--input-border); background: var(--card-bg); color: var(--text); }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; font-size: 19px; font-weight: 700; }
+  .btn-primary:hover { background: var(--accent-dark); color: #fff; }
+  .btn-danger:hover { border-color: var(--red); color: var(--red); }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .btns .btn { flex: 1 1 auto; }
+  .missing { font-size: 15px; margin: 12px 0 0; color: var(--text-muted); }
+  .missing b { color: var(--red); }
+  .missing ul { margin: 4px 0 0; padding-left: 20px; }
+  .ok { color: #16a34a; font-weight: 600; }
+  .status { font-size: 14px; color: var(--text-faint); margin-top: 8px; min-height: 20px; }
+  .ver { color: var(--text-faint); font-size: 13px; text-align: center; }
+  .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .photos { grid-template-columns: 1fr; } }
+  .slot { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--surface); }
+  .slot .frame { position: relative; width: 100%; border: 2px dashed var(--input-border); border-radius: 6px;
+                 background: var(--card-bg); display: flex; align-items: center; justify-content: center;
+                 cursor: pointer; overflow: hidden; color: var(--text-faint); font-size: 15px; text-align: center; }
+  .slot .frame.has { border-style: solid; border-color: var(--border); }
+  .slot .frame.drag { border-color: var(--accent); background: var(--accent-bg); }
+  .slot canvas { width: 100%; height: 100%; display: block; }
+  .slot .no { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,.55); color: #fff; font-size: 13px;
+              border-radius: 4px; padding: 0 6px; }
+  .slot .tools { display: flex; gap: 6px; margin-top: 6px; }
+  .slot .tools .btn { flex: 1; padding: 5px 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>บันทึกผลการออกตรวจงานจ้าง</h1>
+  <p class="sub">กรอกข้อมูล → กดสร้างไฟล์ ได้ .docx (บันทึกข้อความ + บันทึกผลการตรวจงานจ้าง) ทันที · ข้อมูลจำไว้ในเครื่องอัตโนมัติ</p>
+
+  <div class="layout">
+    <div class="col-left">
+
+      <div class="card">
+        <h2>1. โครงการ / สัญญาจ้าง</h2>
+        <label>ชื่อโครงการ <span class="hint">(ใส่ "หมู่ที่ ..." ต่อท้ายด้วย)</span></label>
+        <textarea id="projectName" rows="2" placeholder="เช่น โครงการก่อสร้างถนน ค.ส.ล. ... หมู่ที่ 2"></textarea>
+        <label>ผู้รับจ้าง</label>
+        <input type="text" id="contractor" placeholder="เช่น บริษัท ... จำกัด / หจก. ...">
+        <div class="row2">
+          <div><label>สัญญาจ้างเลขที่</label><input type="text" id="contractNo" placeholder="เช่น 27/2568"></div>
+          <div><label>ลงวันที่ <span class="hint">(พิมพ์ 1/7/68 ได้)</span></label><input type="text" id="contractDate" class="date-field"></div>
+        </div>
+        <div class="row2">
+          <div><label>เริ่มสัญญาวันที่</label><input type="text" id="startDate" class="date-field"></div>
+          <div><label>สิ้นสุดสัญญาวันที่</label><input type="text" id="endDate" class="date-field"></div>
+        </div>
+        <label>วงเงินจ้างก่อสร้าง (บาท)</label>
+        <input type="text" id="contractAmount" inputmode="decimal" placeholder="เช่น 4867000">
+        <div class="hint" id="contractAmountText" style="margin-top:4px">(ตัวอักษร — คำนวณให้เอง)</div>
+        <div class="row2">
+          <div><label>คำสั่งแต่งตั้งกรรมการ ที่</label><input type="text" id="orderNo" placeholder="เช่น 655/2568"></div>
+          <div><label>คำสั่ง ลงวันที่</label><input type="text" id="orderDate" class="date-field"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2. คณะกรรมการตรวจรับพัสดุ</h2>
+        <div class="member">
+          <div class="role">ประธาน</div>
+          <div><label>คำนำหน้า/ยศ</label><input type="text" id="prefix1" list="prefixList" placeholder="(ไม่มี ปล่อยว่าง)"></div>
+          <div><label>ชื่อ-สกุล</label><input type="text" id="name1" list="nameList" placeholder="เช่น นางมาลัย  เลิศฤทธิ์"></div>
+        </div>
+        <div class="member">
+          <div class="role">กรรมการ</div>
+          <div><label>คำนำหน้า/ยศ</label><input type="text" id="prefix2" list="prefixList" placeholder="(ไม่มี ปล่อยว่าง)"></div>
+          <div><label>ชื่อ-สกุล</label><input type="text" id="name2" list="nameList" placeholder="เช่น คมสรร  เครือศรี"></div>
+        </div>
+        <div class="member">
+          <div class="role">กรรมการ</div>
+          <div><label>คำนำหน้า/ยศ</label><input type="text" id="prefix3" list="prefixList" placeholder="(ไม่มี ปล่อยว่าง)"></div>
+          <div><label>ชื่อ-สกุล</label><input type="text" id="name3" list="nameList" placeholder="เช่น นายกำชัย  ทองสุทธิ์"></div>
+        </div>
+        <div class="note">
+          <b>คำนำหน้า/ยศ</b> เช่น ว่าที่ร้อยตรี — ในเอกสารจะวางไว้หน้าลายเซ็น และต่อหน้าชื่อในรายชื่อกรรมการ
+          ถ้าไม่มีให้ปล่อยว่าง (จะว่างไว้ในเอกสาร) · คนที่ไม่มียศ ใส่ นาย/นาง/นางสาว ไว้ในช่องชื่อ-สกุล
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3. การออกตรวจครั้งนี้</h2>
+        <div class="row3">
+          <div><label>ครั้งที่</label><input type="text" id="round" inputmode="numeric" placeholder="เช่น 1"></div>
+          <div><label>วันที่ออกตรวจ</label><input type="text" id="inspectDate" class="date-field" placeholder="เช่น 5/9/68"></div>
+          <div><label>วันที่หนังสือ <span class="hint">(ว่าง = วันออกตรวจ)</span></label><input type="text" id="docDate" class="date-field"></div>
+        </div>
+        <div class="row2">
+          <div><label>ตั้งแต่เวลา <span class="hint">(9 หรือ 9.30)</span></label><input type="text" id="timeStart" class="time-field" placeholder="เช่น 09.00"></div>
+          <div><label>ถึงเวลา</label><input type="text" id="timeEnd" class="time-field" placeholder="เช่น 09.45"></div>
+        </div>
+        <label>ผลการตรวจงานจ้าง <span class="hint">(ต่อท้ายด้วย "เป็นไปตามรูปแบบและสัญญาจ้างของ อบต.คลองด่าน" ให้เอง)</span></label>
+        <textarea id="result" rows="3" placeholder="เช่น ผู้รับจ้างสามารถวางบ่อพัก ค.ส.ล. และการวางท่อระบายน้ำ ค.ส.ล."></textarea>
+      </div>
+
+      <div class="card">
+        <h2>4. รูปถ่ายการออกตรวจ</h2>
+        <p class="hint" style="margin:0 0 10px">คลิกหรือลากรูปมาวางในกรอบ · รูปถูกตัดขอบให้พอดีกรอบในเอกสารอัตโนมัติ ·
+          ไม่ใส่รูปเลย = เอกสารคงกรอบ SmartArt เดิมไว้ · <b>รูปไม่ถูกจำไว้</b> ปิดหน้าเว็บแล้วต้องใส่ใหม่</p>
+        <div class="btns" style="margin:0 0 12px">
+          <button class="btn" id="btnPickMany">เลือกหลายรูปพร้อมกัน</button>
+          <button class="btn btn-danger" id="btnClearPhotos">ลบรูปทั้งหมด</button>
+        </div>
+        <div class="photos" id="photos"></div>
+        <input type="file" id="photoFileMany" accept="image/*" multiple hidden>
+      </div>
+    </div>
+
+    <div class="col-right">
+      <div class="card">
+        <h2>สร้างเอกสาร</h2>
+        <button class="btn-primary" id="btnBuild">สร้างไฟล์ .docx</button>
+        <div class="missing" id="missing"></div>
+        <div class="status" id="buildStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>โครงการที่บันทึกไว้</h2>
+        <select id="savedSelect"><option value="">— เลือกโครงการ —</option></select>
+        <div class="btns">
+          <button class="btn" id="btnLoad">โหลด</button>
+          <button class="btn" id="btnSave">บันทึก/อัปเดต</button>
+          <button class="btn btn-danger" id="btnDelete">ลบ</button>
+        </div>
+        <div class="btns">
+          <button class="btn" id="btnNext" title="ครั้งที่ +1 และล้างวันที่/เวลา/ผลการตรวจ (ข้อมูลโครงการและกรรมการคงไว้)">ออกตรวจครั้งถัดไป</button>
+        </div>
+        <div class="status" id="saveStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>อื่นๆ</h2>
+        <div class="btns">
+          <button class="btn" id="btnExport">สำรองข้อมูล (.json)</button>
+          <button class="btn" id="btnImport">นำเข้า</button>
+          <button class="btn btn-danger" id="btnClear">ล้างฟอร์ม</button>
+        </div>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+        <p class="hint" style="margin:10px 0 0">ช่องที่เว้นว่าง จะออกเป็น "......" <span style="color:var(--red)">ตัวอักษรสีแดง</span> ในไฟล์ ให้เห็นว่าต้องกลับมาแก้</p>
+      </div>
+      <p class="ver">InspectDocx v1.1</p>
+    </div>
+  </div>
+</div>
+
+<datalist id="prefixList">
+  <option value="ว่าที่ร้อยตรี"><option value="ว่าที่ร้อยตรีหญิง"><option value="ว่าที่ร้อยโท"><option value="ว่าที่ร้อยเอก">
+  <option value="สิบเอก"><option value="สิบโท"><option value="สิบตรี"><option value="จ่าสิบเอก"><option value="จ่าเอก">
+  <option value="ดาบตำรวจ"><option value="ดร.">
+</datalist>
+<datalist id="nameList"></datalist>
+
+<script src="./shared/jszip.lib.js"></script>
+<script src="./shared/monthyear.js"></script>
+<script src="./shared/docgen.js"></script>
+<script src="./template-data.js"></script>
+<script>
+(function () {
+  "use strict";
+  var G = window.InspectDocGen;
+  var KEY_AUTO = "inspectdocx_autosave";
+  var KEY_SAVED = "inspectdocx_projects";
+  var FIELDS = ["projectName", "contractor", "contractNo", "contractDate", "startDate", "endDate",
+    "contractAmount", "orderNo", "orderDate",
+    "prefix1", "name1", "prefix2", "name2", "prefix3", "name3",
+    "round", "inspectDate", "docDate", "timeStart", "timeEnd", "result"];
+  var LABELS = {
+    projectName: "ชื่อโครงการ", contractor: "ผู้รับจ้าง", contractNo: "เลขที่สัญญา", contractDate: "วันที่สัญญา",
+    startDate: "วันเริ่มสัญญา", endDate: "วันสิ้นสุดสัญญา", contractAmount: "วงเงินจ้าง", orderNo: "เลขที่คำสั่ง",
+    orderDate: "วันที่คำสั่ง", name1: "ชื่อประธาน", name2: "ชื่อกรรมการคนที่ 2", name3: "ชื่อกรรมการคนที่ 3",
+    round: "ครั้งที่", inspectDate: "วันที่ออกตรวจ", timeStart: "เวลาเริ่ม", timeEnd: "เวลาสิ้นสุด", result: "ผลการตรวจ",
+  };
+  function $(id) { return document.getElementById(id); }
+  function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function load(k, def) { try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : def; } catch (e) { return def; } }
+
+  function getData() { var d = {}; FIELDS.forEach(function (f) { d[f] = $(f).value; }); return d; }
+  function setData(d) {
+    FIELDS.forEach(function (f) { $(f).value = d && d[f] != null ? d[f] : ""; });
+    refresh();
+  }
+
+  // ---- แปลงรูปแบบตอนออกจากช่อง ----
+  document.querySelectorAll(".date-field").forEach(function (el) {
+    el.addEventListener("blur", function () { if (el.value.trim()) { el.value = G.thaiDate(el.value); refresh(); } });
+  });
+  document.querySelectorAll(".time-field").forEach(function (el) {
+    el.addEventListener("blur", function () { if (el.value.trim()) { el.value = G.formatTime(el.value); refresh(); } });
+  });
+  $("contractAmount").addEventListener("blur", function () {
+    var el = $("contractAmount"); if (el.value.trim()) { el.value = G.formatMoney(el.value); refresh(); }
+  });
+
+  function refresh() {
+    var d = getData();
+    $("contractAmountText").textContent = d.contractAmount.trim() ? "(" + (G.bahtText(d.contractAmount) || "ตัวเลขไม่ถูกต้อง") + ")" : "(ตัวอักษร — คำนวณให้เอง)";
+    var miss = FIELDS.filter(function (f) { return LABELS[f] && !String(d[f]).trim(); });
+    $("missing").innerHTML = miss.length
+      ? "<b>ยังไม่กรอก " + miss.length + " ช่อง</b> (สร้างได้ ช่องนี้จะเป็นสีแดง)<ul>" +
+        miss.map(function (f) { return "<li>" + LABELS[f] + "</li>"; }).join("") + "</ul>"
+      : '<span class="ok">✓ กรอกครบทุกช่องแล้ว</span>';
+    store(KEY_AUTO, d);
+  }
+  FIELDS.forEach(function (f) { $(f).addEventListener("input", refresh); });
+
+  // ---- สร้างไฟล์ ----
+  function safeName(s) { return String(s).replace(/[\\\/:*?"<>|\n\r]+/g, " ").replace(/\s+/g, " ").trim(); }
+  $("btnBuild").addEventListener("click", function () {
+    var d = getData();
+    var btn = $("btnBuild");
+    btn.disabled = true; $("buildStatus").textContent = "กำลังสร้างไฟล์...";
+    photoBytesAll().then(function (photos) {
+      return G.buildDocx(JSZip, TEMPLATE_INSPECT_BASE64, G.buildFields(d), photos);
+    }).then(function (bytes) {
+      var proj = safeName(d.projectName).replace(/^โครงการ/, "").slice(0, 50);
+      var name = safeName("บันทึกออกตรวจ ครั้งที่ " + (d.round.trim() || "_") + (proj ? " " + proj : "")) + ".docx";
+      var blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      $("buildStatus").textContent = "ดาวน์โหลดแล้ว: " + name;
+    }).catch(function (e) {
+      console.error(e); $("buildStatus").textContent = "สร้างไฟล์ไม่สำเร็จ: " + e.message;
+    }).then(function () { btn.disabled = false; });
+  });
+
+  // ---- โครงการที่บันทึกไว้ ----
+  function projectKey(d) { return (d.contractNo.trim() ? "สัญญา " + d.contractNo.trim() + " · " : "") + (d.projectName.trim().replace(/\s+/g, " ").slice(0, 60) || "(ไม่มีชื่อ)"); }
+  function renderSaved(selectKey) {
+    var saved = load(KEY_SAVED, {});
+    var sel = $("savedSelect");
+    sel.innerHTML = '<option value="">— เลือกโครงการ (' + Object.keys(saved).length + ') —</option>';
+    Object.keys(saved).sort().forEach(function (k) {
+      var o = document.createElement("option"); o.value = k;
+      o.textContent = k + (saved[k].round ? " (ล่าสุดครั้งที่ " + saved[k].round + ")" : "");
+      sel.appendChild(o);
+    });
+    if (selectKey) sel.value = selectKey;
+    // รายชื่อกรรมการที่เคยใช้ → ช่วยพิมพ์
+    var names = {};
+    Object.keys(saved).forEach(function (k) { [1, 2, 3].forEach(function (i) { var n = (saved[k]["name" + i] || "").trim(); if (n) names[n] = 1; }); });
+    $("nameList").innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + n.replace(/"/g, "&quot;") + '">'; }).join("");
+  }
+  function flash(msg) { $("saveStatus").textContent = msg; setTimeout(function () { if ($("saveStatus").textContent === msg) $("saveStatus").textContent = ""; }, 4000); }
+
+  $("btnSave").addEventListener("click", function () {
+    var d = getData();
+    if (!d.projectName.trim() && !d.contractNo.trim()) { flash("กรอกชื่อโครงการหรือเลขที่สัญญาก่อน"); return; }
+    var saved = load(KEY_SAVED, {}); var k = projectKey(d);
+    saved[k] = d; store(KEY_SAVED, saved); renderSaved(k); flash("บันทึกแล้ว");
+  });
+  $("btnLoad").addEventListener("click", function () {
+    var k = $("savedSelect").value; if (!k) { flash("เลือกโครงการก่อน"); return; }
+    setData(load(KEY_SAVED, {})[k]); flash("โหลดแล้ว");
+  });
+  $("savedSelect").addEventListener("change", function () { if ($("savedSelect").value) $("btnLoad").click(); });
+  $("btnDelete").addEventListener("click", function () {
+    var k = $("savedSelect").value; if (!k) { flash("เลือกโครงการก่อน"); return; }
+    if (!confirm("ลบโครงการ\n" + k + " ?")) return;
+    var saved = load(KEY_SAVED, {}); delete saved[k]; store(KEY_SAVED, saved); renderSaved(); flash("ลบแล้ว");
+  });
+  $("btnNext").addEventListener("click", function () {
+    var d = getData();
+    var n = parseInt(String(d.round).replace(/[๐-๙]/g, function (c) { return "๐๑๒๓๔๕๖๗๘๙".indexOf(c); }), 10);
+    $("round").value = isNaN(n) ? "1" : String(n + 1);
+    ["inspectDate", "docDate", "timeStart", "timeEnd", "result"].forEach(function (f) { $(f).value = ""; });
+    clearPhotos(); refresh(); $("inspectDate").focus(); flash("ครั้งที่ " + $("round").value + " — กรอกวันที่/เวลา/ผลการตรวจใหม่");
+  });
+
+  // ---- สำรอง/นำเข้า/ล้าง ----
+  $("btnExport").addEventListener("click", function () {
+    var data = { app: "InspectDocx", exported: new Date().toISOString(), current: getData(), projects: load(KEY_SAVED, {}) };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = "InspectDocx-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $("btnImport").addEventListener("click", function () { $("importFile").click(); });
+  $("importFile").addEventListener("change", function (e) {
+    var file = e.target.files[0]; if (!file) return;
+    file.text().then(function (txt) {
+      var data = JSON.parse(txt);
+      var saved = load(KEY_SAVED, {});
+      Object.keys(data.projects || {}).forEach(function (k) { saved[k] = data.projects[k]; });
+      store(KEY_SAVED, saved); renderSaved();
+      if (data.current && confirm("นำข้อมูลในฟอร์มจากไฟล์สำรองมาใส่ด้วยไหม?")) setData(data.current);
+      flash("นำเข้า " + Object.keys(data.projects || {}).length + " โครงการ");
+    }).catch(function () { alert("อ่านไฟล์ไม่ได้ — ต้องเป็นไฟล์ .json ที่ได้จากปุ่มสำรองข้อมูล"); });
+    e.target.value = "";
+  });
+  $("btnClear").addEventListener("click", function () {
+    if (confirm("ล้างข้อมูลในฟอร์มทั้งหมด? (โครงการที่บันทึกไว้ไม่หาย)")) { setData({}); clearPhotos(); }
+  });
+
+  // ====================================================================== รูปถ่าย
+  // เก็บรูปไว้ในหน่วยความจำ (ไม่ลง localStorage เพราะใหญ่เกิน) — แต่ละช่อง: { img, rot }
+  var PHOTO_W = 1600;            // ความกว้างรูปที่ใส่ลงเอกสาร (px) — พอสำหรับพิมพ์กรอบ ~9 ซม. ที่ ~440 dpi
+  var JPEG_QUALITY = 0.85;
+  var slotInfo = [];             // จากเทมเพลต: [{ aspect }]
+  var photos = [];
+
+  function slotCanvasSize(i) { var a = slotInfo[i].aspect; return { w: PHOTO_W, h: Math.round(PHOTO_W / a) }; }
+
+  // วาดรูปแบบ "เต็มกรอบ" (ตัดขอบส่วนเกิน) + หมุน
+  function drawSlot(i, canvas) {
+    var p = photos[i], sz = slotCanvasSize(i);
+    canvas.width = sz.w; canvas.height = sz.h;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, sz.w, sz.h);
+    if (!p) return;
+    var rotated = p.rot % 2 === 1;
+    var iw = rotated ? p.img.naturalHeight : p.img.naturalWidth;
+    var ih = rotated ? p.img.naturalWidth : p.img.naturalHeight;
+    var scale = Math.max(sz.w / iw, sz.h / ih);
+    ctx.save();
+    ctx.translate(sz.w / 2, sz.h / 2);
+    ctx.rotate(p.rot * Math.PI / 2);
+    ctx.drawImage(p.img, -p.img.naturalWidth * scale / 2, -p.img.naturalHeight * scale / 2,
+                  p.img.naturalWidth * scale, p.img.naturalHeight * scale);
+    ctx.restore();
+  }
+
+  function renderPhotos() {
+    var box = $("photos"); box.innerHTML = "";
+    slotInfo.forEach(function (info, i) {
+      var p = photos[i];
+      var el = document.createElement("div"); el.className = "slot";
+      el.innerHTML =
+        '<div class="frame' + (p ? " has" : "") + '" style="aspect-ratio:' + info.aspect.toFixed(4) + '">' +
+          (p ? "<canvas></canvas>" : "<div>＋ ใส่รูปที่ " + (i + 1) + "<br><small>คลิก หรือ ลากรูปมาวาง</small></div>") +
+          '<span class="no">' + (i + 1) + "</span></div>" +
+        '<div class="tools">' +
+          '<button class="btn" data-act="rot" ' + (p ? "" : "disabled") + '>⟳ หมุน</button>' +
+          '<button class="btn" data-act="left" ' + (i > 0 ? "" : "disabled") + '>◀ ย้าย</button>' +
+          '<button class="btn" data-act="right" ' + (i < slotInfo.length - 1 ? "" : "disabled") + '>ย้าย ▶</button>' +
+          '<button class="btn btn-danger" data-act="del" ' + (p ? "" : "disabled") + '>ลบ</button></div>' +
+        '<input type="file" accept="image/*" hidden>';
+      var frame = el.querySelector(".frame"), file = el.querySelector("input[type=file]");
+      if (p) drawSlot(i, el.querySelector("canvas"));
+      frame.addEventListener("click", function () { file.click(); });
+      file.addEventListener("change", function () { if (file.files[0]) loadFiles([file.files[0]], i); });
+      frame.addEventListener("dragover", function (e) { e.preventDefault(); frame.classList.add("drag"); });
+      frame.addEventListener("dragleave", function () { frame.classList.remove("drag"); });
+      frame.addEventListener("drop", function (e) {
+        e.preventDefault(); frame.classList.remove("drag");
+        var fl = Array.prototype.filter.call(e.dataTransfer.files, function (f) { return /^image\//.test(f.type); });
+        if (fl.length) loadFiles(fl, i);
+      });
+      el.querySelectorAll("[data-act]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var act = b.dataset.act;
+          if (act === "rot") photos[i].rot = (photos[i].rot + 1) % 4;
+          if (act === "del") photos[i] = null;
+          if (act === "left" || act === "right") {
+            var j = act === "left" ? i - 1 : i + 1, t = photos[j]; photos[j] = photos[i]; photos[i] = t;
+          }
+          renderPhotos();
+        });
+      });
+      box.appendChild(el);
+    });
+    refresh();
+  }
+
+  function loadImage(f) {
+    return new Promise(function (res, rej) {
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () { res(img); };
+      img.onerror = function () { rej(new Error("เปิดรูปไม่ได้: " + f.name)); };
+      img.src = url;
+    });
+  }
+  // ใส่รูปเริ่มที่ช่อง start แล้วต่อช่องถัดไป (ถ้าเลือกหลายรูป)
+  function loadFiles(files, start) {
+    var jobs = Array.prototype.slice.call(files, 0, slotInfo.length - start).map(loadImage);
+    Promise.all(jobs).then(function (imgs) {
+      imgs.forEach(function (img, k) {
+        photos[start + k] = { img: img, rot: 0 };
+      });
+      if (files.length > imgs.length) alert("ใส่ได้สูงสุด " + slotInfo.length + " รูป — รูปที่เกินไม่ได้ใส่");
+      renderPhotos();
+    }).catch(function (e) { alert(e.message); });
+  }
+  function clearPhotos() { photos = slotInfo.map(function () { return null; }); renderPhotos(); }
+  $("btnPickMany").addEventListener("click", function () { $("photoFileMany").click(); });
+  $("photoFileMany").addEventListener("change", function (e) {
+    var fl = e.target.files; if (!fl.length) return;
+    // เติมช่องว่างก่อน ถ้าไม่มีช่องว่างเลยเริ่มช่อง 1
+    var first = photos.indexOf(null); loadFiles(fl, first === -1 ? 0 : first); e.target.value = "";
+  });
+  $("btnClearPhotos").addEventListener("click", function () {
+    if (photos.some(Boolean) && confirm("ลบรูปทั้งหมด?")) clearPhotos();
+  });
+
+  // แปลงรูปทุกช่องเป็น JPEG (Uint8Array) ตามขนาดกรอบจริง — ช่องว่างส่ง null
+  function photoBytesAll() {
+    return Promise.all(slotInfo.map(function (info, i) {
+      if (!photos[i]) return null;
+      var c = document.createElement("canvas"); drawSlot(i, c);
+      return new Promise(function (res) { c.toBlob(res, "image/jpeg", JPEG_QUALITY); })
+        .then(function (b) { return b.arrayBuffer(); }).then(function (ab) { return new Uint8Array(ab); });
+    }));
+  }
+
+  var _refresh = refresh;
+  refresh = function () {
+    _refresh();
+    if (!slotInfo.length) return;
+    var n = photos.filter(Boolean).length;
+    $("missing").insertAdjacentHTML("beforeend",
+      '<div style="margin-top:8px">รูปถ่าย: <b style="color:' + (n ? "#16a34a" : "var(--red)") + '">' + n + "/" + slotInfo.length + "</b>" +
+      (n ? "" : " (ไม่ใส่ = คงกรอบเดิมไว้)") + "</div>");
+  };
+
+  G.getPhotoSlots(JSZip, TEMPLATE_INSPECT_BASE64).then(function (slots) {
+    slotInfo = slots; clearPhotos();
+  });
+
+  setData(load(KEY_AUTO, {}));
+  renderSaved();
+})();
+</script>
+</body>
+</html>
