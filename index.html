@@ -74,10 +74,7 @@
               border-radius: 4px; padding: 0 6px; }
   .slot .tools { display: flex; gap: 6px; margin-top: 6px; }
   .slot .tools .btn { flex: 1; padding: 5px 6px; font-size: 14px; }
-  .slot.extra { background: var(--accent-bg); }
   .slot.add .frame { min-height: 120px; }
-  .photo-divider { grid-column: 1 / -1; font-size: 15px; font-weight: 600; color: var(--accent-text);
-                   border-bottom: 1px solid var(--border); padding: 4px 0; margin-top: 4px; }
   .datepick { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr auto auto; gap: 4px; }
   .datepick select { padding: 9px 4px; font-size: 16px; }
   .datepick .btn { padding: 4px 8px; font-size: 14px; white-space: nowrap; }
@@ -158,8 +155,8 @@
 
       <div class="card">
         <h2>4. รูปถ่ายการออกตรวจ</h2>
-        <p class="hint" style="margin:0 0 10px">คลิกหรือลากรูปมาวางในกรอบ · รูปถูกตัดขอบให้พอดีกรอบในเอกสารอัตโนมัติ ·
-          ไม่ใส่รูปเลย = เอกสารคงกรอบ SmartArt เดิมไว้ · รูปเกิน 4 รูปจะเพิ่มหน้าบันทึกผลการตรวจงานจ้างต่อท้ายให้เอง · <b>รูปไม่ถูกจำไว้</b> ปิดหน้าเว็บแล้วต้องใส่ใหม่</p>
+        <p class="hint" style="margin:0 0 10px">ใส่ได้ไม่จำกัดจำนวน (สูงสุด 40) · ทุก 4 รูปได้หน้าบันทึกผลการตรวจงานจ้าง 1 ชุด โปรแกรมแบ่งให้เอง ·
+          รูปถูกตัดขอบให้พอดีกรอบ · คลิกที่รูปเพื่อเปลี่ยนรูป · <b>รูปไม่ถูกจำไว้</b> ปิดหน้าเว็บแล้วต้องใส่ใหม่</p>
         <div class="btns" style="margin:0 0 12px">
           <button class="btn" id="btnPickMany">เลือกหลายรูปพร้อมกัน</button>
           <button class="btn btn-danger" id="btnClearPhotos">ลบรูปทั้งหมด</button>
@@ -201,7 +198,7 @@
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="hint" style="margin:10px 0 0">ช่องที่เว้นว่าง จะออกเป็น "......" <span style="color:var(--red)">ตัวอักษรสีแดง</span> ในไฟล์ ให้เห็นว่าต้องกลับมาแก้</p>
       </div>
-      <p class="ver">InspectDocx v1.3</p>
+      <p class="ver">InspectDocx v1.4</p>
     </div>
   </div>
 </div>
@@ -403,18 +400,17 @@
   });
 
   // ====================================================================== รูปถ่าย
-  // เก็บรูปไว้ในหน่วยความจำ (ไม่ลง localStorage เพราะใหญ่เกิน) — แต่ละช่อง: { img, rot } หรือ null
-  //   ช่อง 0..N-1  = กรอบรูปในเทมเพลต (N ช่อง จาก SmartArt) — ลบแล้วเป็นช่องว่าง
-  //   ช่อง N ขึ้นไป = สำเนาหน้าบันทึกผลการตรวจงานจ้างต่อท้ายเอกสาร (ชุดละ N รูป) — ลบแล้วช่องหายไป
+  // รายการรูปเดียว เรียงตามลำดับ (เก็บในหน่วยความจำ ไม่ลง localStorage เพราะใหญ่เกิน) — แต่ละรูป: { img, rot }
+  // ตอนสร้างไฟล์: รูปที่ 1–N ลงกรอบในหน้าบันทึกผลการตรวจงานจ้าง (N = จำนวนกรอบในเทมเพลต = 4)
+  //               รูปที่ N+1 ขึ้นไป → docgen คัดลอกหน้าบันทึกผลการตรวจงานจ้างต่อท้าย ชุดละ N รูป
   var PHOTO_W = 1600;            // ความกว้างรูปที่ใส่ลงเอกสาร (px) — พอสำหรับพิมพ์กรอบ ~9 ซม. ที่ ~440 dpi
   var JPEG_QUALITY = 0.85;
   var MAX_PHOTOS = 40;           // กันไฟล์ใหญ่เกิน (~45 KB/รูป)
   var slotInfo = [];             // จากเทมเพลต: [{ aspect }]
   var photos = [];
 
-  function aspectOf(i) { return (slotInfo[i] || slotInfo[0]).aspect; }
+  function aspectOf(i) { return (slotInfo[i % slotInfo.length] || slotInfo[0]).aspect; }
   function slotCanvasSize(i) { return { w: PHOTO_W, h: Math.round(PHOTO_W / aspectOf(i)) }; }
-  function extraCount() { return Math.max(0, photos.length - slotInfo.length); }
 
   // วาดรูปแบบ "เต็มกรอบ" (ตัดขอบส่วนเกิน) + หมุน
   function drawSlot(i, canvas) {
@@ -435,39 +431,29 @@
     ctx.restore();
   }
 
-  function divider(html) {
-    var d = document.createElement("div"); d.className = "photo-divider"; d.innerHTML = html; return d;
-  }
-
   function renderPhotos() {
     var box = $("photos"); box.innerHTML = "";
-    var N = slotInfo.length, per = slotInfo.length;
-    if (N) box.appendChild(divider("กรอบรูปในหน้าบันทึกผลการตรวจงานจ้าง (" + N + " ช่อง)"));
     photos.forEach(function (p, i) {
-      if (i === N) box.appendChild(divider("หน้าเพิ่ม — คัดลอกหน้าบันทึกผลการตรวจงานจ้าง + ตารางผู้เข้าร่วมตรวจงาน หน้าละ " + per + " รูป (" +
-        Math.ceil(extraCount() / per) + " หน้า)"));
-      var extra = i >= N;
-      var el = document.createElement("div"); el.className = "slot" + (extra ? " extra" : "");
+      var el = document.createElement("div"); el.className = "slot";
       el.innerHTML =
-        '<div class="frame' + (p ? " has" : "") + '" style="aspect-ratio:' + aspectOf(i).toFixed(4) + '">' +
-          (p ? "<canvas></canvas>" : "<div>＋ ใส่รูปที่ " + (i + 1) + "<br><small>คลิก หรือ ลากรูปมาวาง</small></div>") +
+        '<div class="frame has" style="aspect-ratio:' + aspectOf(i).toFixed(4) + '" title="คลิกเพื่อเปลี่ยนรูป"><canvas></canvas>' +
           '<span class="no">' + (i + 1) + "</span></div>" +
         '<div class="tools">' +
-          '<button class="btn" data-act="rot" ' + (p ? "" : "disabled") + '>⟳ หมุน</button>' +
+          '<button class="btn" data-act="rot">⟳ หมุน</button>' +
           '<button class="btn" data-act="left" ' + (i > 0 ? "" : "disabled") + '>◀ ย้าย</button>' +
           '<button class="btn" data-act="right" ' + (i < photos.length - 1 ? "" : "disabled") + '>ย้าย ▶</button>' +
-          '<button class="btn btn-danger" data-act="del" ' + (p || extra ? "" : "disabled") + '>ลบ</button></div>' +
+          '<button class="btn btn-danger" data-act="del">ลบ</button></div>' +
         '<input type="file" accept="image/*" hidden>';
       var frame = el.querySelector(".frame"), file = el.querySelector("input[type=file]");
-      if (p) drawSlot(i, el.querySelector("canvas"));
+      drawSlot(i, el.querySelector("canvas"));
       frame.addEventListener("click", function () { file.click(); });
-      file.addEventListener("change", function () { if (file.files[0]) loadFiles([file.files[0]], [i]); });
-      dropTarget(frame, function (fl) { loadFiles(fl, [i]); });
+      file.addEventListener("change", function () { if (file.files[0]) loadFiles([file.files[0]], i, true); });
+      dropTarget(frame, function (fl) { loadFiles(fl, i, true); });
       el.querySelectorAll("[data-act]").forEach(function (b) {
         b.addEventListener("click", function () {
           var act = b.dataset.act;
           if (act === "rot") photos[i].rot = (photos[i].rot + 1) % 4;
-          if (act === "del") { if (extra) photos.splice(i, 1); else photos[i] = null; }
+          if (act === "del") photos.splice(i, 1);
           if (act === "left" || act === "right") {
             var j = act === "left" ? i - 1 : i + 1, t = photos[j]; photos[j] = photos[i]; photos[i] = t;
           }
@@ -476,14 +462,14 @@
       });
       box.appendChild(el);
     });
-    // ช่อง "+ เพิ่มรูป" → ต่อหน้ารูปเพิ่มเติม
-    if (N && photos.length < MAX_PHOTOS) {
-      if (photos.length === N) box.appendChild(divider("รูปเกิน " + N + " รูป → เพิ่มหน้าบันทึกผลการตรวจงานจ้างต่อท้ายให้เอง (หน้าละ " + per + " รูป)"));
+    // ช่อง "+ เพิ่มรูป" ท้ายรายการเสมอ
+    if (photos.length < MAX_PHOTOS) {
       var add = document.createElement("div"); add.className = "slot add";
-      add.innerHTML = '<div class="frame" style="aspect-ratio:' + aspectOf(0).toFixed(4) + '"><div>＋ เพิ่มรูป<br><small>เลือกได้หลายรูป หรือลากมาวาง</small></div></div>';
+      add.innerHTML = '<div class="frame" style="aspect-ratio:' + (slotInfo.length ? aspectOf(0) : 1.45).toFixed(4) + '">' +
+        "<div>＋ เพิ่มรูป<br><small>คลิกเลือกได้หลายรูป หรือลากมาวาง</small></div></div>";
       var f = add.querySelector(".frame");
       f.addEventListener("click", function () { $("photoFileMany").click(); });
-      dropTarget(f, function (fl) { loadFiles(fl, appendTargets(fl.length)); });
+      dropTarget(f, function (fl) { loadFiles(fl, photos.length, false); });
       box.appendChild(add);
     }
     refresh();
@@ -507,40 +493,25 @@
       img.src = url;
     });
   }
-  // ตำแหน่งช่องสำหรับรูปใหม่ n รูป: ถ้าลงที่ช่อง start → เริ่มที่ช่องนั้นแล้วต่อช่องถัดไป (เกินก็ต่อท้าย)
-  function targetsFrom(start, n) {
-    var t = []; for (var k = 0; k < n && start + k < MAX_PHOTOS; k++) t.push(start + k); return t;
-  }
-  // "เลือกหลายรูป"/"+ เพิ่มรูป": เติมกรอบหลักที่ว่างก่อน แล้วต่อท้าย
-  function appendTargets(n) {
-    var t = [];
-    for (var i = 0; i < photos.length && t.length < n; i++) if (!photos[i] && i < slotInfo.length) t.push(i);
-    for (var j = photos.length; t.length < n && j < MAX_PHOTOS; j++) t.push(j);
-    return t;
-  }
-  function loadFiles(files, targets) {
-    if (targets.length === 1 && files.length > 1) targets = targetsFrom(targets[0], files.length);
-    var list = Array.prototype.slice.call(files, 0, targets.length);
+  // ใส่รูปที่ตำแหน่ง at — replace=true: รูปแรกแทนรูปเดิมที่ตำแหน่งนั้น ที่เหลือแทรกต่อจากนั้น
+  function loadFiles(files, at, replace) {
+    var room = MAX_PHOTOS - photos.length + (replace ? 1 : 0);
+    var list = Array.prototype.slice.call(files, 0, Math.max(0, room));
     Promise.all(list.map(loadImage)).then(function (imgs) {
-      imgs.forEach(function (img, k) {
-        var at = targets[k];
-        while (photos.length < at) photos.push(null);
-        photos[at] = { img: img, rot: 0 };
-      });
-      // ช่องหน้าเพิ่มเติมที่ว่าง (เช่น เกิดจากการย้าย) ไม่ต้องเก็บไว้
-      photos = photos.filter(function (p, i) { return i < slotInfo.length || p; });
-      if (files.length > imgs.length) alert("ใส่ได้สูงสุด " + MAX_PHOTOS + " รูป — รูปที่เกินไม่ได้ใส่");
+      var items = imgs.map(function (img) { return { img: img, rot: 0 }; });
+      photos.splice.apply(photos, [at, replace ? 1 : 0].concat(items));
+      if (files.length > list.length) alert("ใส่ได้สูงสุด " + MAX_PHOTOS + " รูป — รูปที่เกินไม่ได้ใส่");
       renderPhotos();
     }).catch(function (e) { alert(e.message); });
   }
-  function clearPhotos() { photos = slotInfo.map(function () { return null; }); renderPhotos(); }
+  function clearPhotos() { photos = []; renderPhotos(); }
   $("btnPickMany").addEventListener("click", function () { $("photoFileMany").click(); });
   $("photoFileMany").addEventListener("change", function (e) {
     var fl = e.target.files; if (!fl.length) return;
-    loadFiles(fl, appendTargets(fl.length)); e.target.value = "";
+    loadFiles(fl, photos.length, false); e.target.value = "";
   });
   $("btnClearPhotos").addEventListener("click", function () {
-    if (photos.some(Boolean) && confirm("ลบรูปทั้งหมด?")) clearPhotos();
+    if (photos.length && confirm("ลบรูปทั้งหมด?")) clearPhotos();
   });
 
   // แปลงรูปทุกช่องเป็น JPEG (Uint8Array) ตามขนาดกรอบจริง — ช่องว่างส่ง null
@@ -557,12 +528,10 @@
   refresh = function () {
     _refresh();
     if (!slotInfo.length) return;
-    var N = slotInfo.length;
-    var main = photos.slice(0, N).filter(Boolean).length, ex = photos.slice(N).filter(Boolean).length;
-    var pages = Math.ceil(ex / N);
+    var n = photos.length, per = slotInfo.length;
     $("missing").insertAdjacentHTML("beforeend",
-      '<div style="margin-top:8px">รูปถ่าย: <b style="color:' + (main + ex ? "#16a34a" : "var(--red)") + '">' + (main + ex) + " รูป</b>" +
-      (main + ex ? " (กรอบหลัก " + main + "/" + N + (ex ? " + หน้าเพิ่ม " + pages + " หน้า" : "") + ")" : " (ไม่ใส่ = คงกรอบเดิมไว้)") + "</div>");
+      '<div style="margin-top:8px">รูปถ่าย: <b style="color:' + (n ? "#16a34a" : "var(--red)") + '">' + n + " รูป</b>" +
+      (n ? " → หน้าบันทึกผลการตรวจ " + Math.ceil(n / per) + " ชุด (ชุดละ " + per + " รูป)" : " (ไม่ใส่ = คงกรอบเดิมไว้)") + "</div>");
   };
 
   G.getPhotoSlots(JSZip, TEMPLATE_INSPECT_BASE64).then(function (slots) {
