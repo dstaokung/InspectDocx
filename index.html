@@ -74,6 +74,10 @@
               border-radius: 4px; padding: 0 6px; }
   .slot .tools { display: flex; gap: 6px; margin-top: 6px; }
   .slot .tools .btn { flex: 1; padding: 5px 6px; font-size: 14px; }
+  .datepick { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr auto auto; gap: 4px; }
+  .datepick select { padding: 9px 4px; font-size: 16px; }
+  .datepick .btn { padding: 4px 8px; font-size: 14px; white-space: nowrap; }
+  .datepick.empty select { color: var(--text-faint); }
 </style>
 </head>
 <body>
@@ -92,7 +96,7 @@
         <input type="text" id="contractor" placeholder="เช่น บริษัท ... จำกัด / หจก. ...">
         <div class="row2">
           <div><label>สัญญาจ้างเลขที่</label><input type="text" id="contractNo" placeholder="เช่น 27/2568"></div>
-          <div><label>ลงวันที่ <span class="hint">(พิมพ์ 1/7/68 ได้)</span></label><input type="text" id="contractDate" class="date-field"></div>
+          <div><label>ลงวันที่ </label><input type="text" id="contractDate" class="date-field"></div>
         </div>
         <div class="row2">
           <div><label>เริ่มสัญญาวันที่</label><input type="text" id="startDate" class="date-field"></div>
@@ -132,9 +136,12 @@
 
       <div class="card">
         <h2>3. การออกตรวจครั้งนี้</h2>
-        <div class="row3">
+        <div class="row2">
           <div><label>ครั้งที่</label><input type="text" id="round" inputmode="numeric" placeholder="เช่น 1"></div>
-          <div><label>วันที่ออกตรวจ</label><input type="text" id="inspectDate" class="date-field" placeholder="เช่น 5/9/68"></div>
+          <div></div>
+        </div>
+        <div class="row2">
+          <div><label>วันที่ออกตรวจ</label><input type="text" id="inspectDate" class="date-field"></div>
           <div><label>วันที่หนังสือ <span class="hint">(ว่าง = วันออกตรวจ)</span></label><input type="text" id="docDate" class="date-field"></div>
         </div>
         <div class="row2">
@@ -190,7 +197,7 @@
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="hint" style="margin:10px 0 0">ช่องที่เว้นว่าง จะออกเป็น "......" <span style="color:var(--red)">ตัวอักษรสีแดง</span> ในไฟล์ ให้เห็นว่าต้องกลับมาแก้</p>
       </div>
-      <p class="ver">InspectDocx v1.1</p>
+      <p class="ver">InspectDocx v1.2</p>
     </div>
   </div>
 </div>
@@ -229,13 +236,59 @@
   function getData() { var d = {}; FIELDS.forEach(function (f) { d[f] = $(f).value; }); return d; }
   function setData(d) {
     FIELDS.forEach(function (f) { $(f).value = d && d[f] != null ? d[f] : ""; });
+    syncDateWidgets();
     refresh();
   }
 
-  // ---- แปลงรูปแบบตอนออกจากช่อง ----
+  // ---- ช่องวันที่: เลือก วัน / เดือน / ปี พ.ศ. (กันพิมพ์ผิด) ----
+  // ค่าจริงเก็บใน <input hidden id="..."> เป็นข้อความเต็ม เช่น "5 กันยายน 2568" (รูปแบบเดิม ข้อมูลเก่าใช้ต่อได้)
+  // เลือกไม่ครบ 3 ช่อง = ถือว่าว่าง
+  var MONTHS = ConsDocxMonthYear.MONTHS;
+  function nowBE() { var n = new Date(); return { d: n.getDate(), m: n.getMonth(), y: n.getFullYear() + 543 }; }
+  function daysIn(m, yBE) { return new Date(yBE - 543, m + 1, 0).getDate(); }
+  function parseThaiDate(v) {
+    var t = G.thaiDate(v || "").match(/^(\d{1,2}) (\S+) (\d{4})$/);
+    if (!t || MONTHS.indexOf(t[2]) < 0) return null;
+    return { d: +t[1], m: MONTHS.indexOf(t[2]), y: +t[3] };
+  }
+  function opt(v, text) { return '<option value="' + v + '">' + text + "</option>"; }
+  var dateWidgets = [];
   document.querySelectorAll(".date-field").forEach(function (el) {
-    el.addEventListener("blur", function () { if (el.value.trim()) { el.value = G.thaiDate(el.value); refresh(); } });
+    el.type = "hidden";
+    var w = document.createElement("div"); w.className = "datepick";
+    var cy = nowBE().y, years = "";
+    for (var y = cy - 3; y <= cy + 3; y++) years += opt(y, y);
+    var days = ""; for (var d = 1; d <= 31; d++) days += opt(d, d);
+    w.innerHTML = '<select class="dd" title="วัน">' + opt("", "วัน") + days + "</select>" +
+      '<select class="mm" title="เดือน">' + opt("", "เดือน") + ConsDocxMonthYear.MONTH_ABBR.map(function (m, i) { return opt(i, m); }).join("") + "</select>" +
+      '<select class="yy" title="ปี พ.ศ.">' + opt("", "ปี พ.ศ.") + years + "</select>" +
+      '<button type="button" class="btn" title="ใส่วันที่วันนี้">วันนี้</button>' +
+      '<button type="button" class="btn btn-danger" title="ล้างช่องนี้">✕</button>';
+    el.parentNode.insertBefore(w, el.nextSibling);
+    var dd = w.querySelector(".dd"), mm = w.querySelector(".mm"), yy = w.querySelector(".yy");
+    var bt = w.querySelectorAll("button");
+    function ensureYear(y) { if (y && !yy.querySelector('option[value="' + y + '"]')) yy.insertAdjacentHTML("beforeend", opt(y, y)); }
+    function fromSelects() {
+      if (mm.value !== "" && yy.value === "") yy.value = String(nowBE().y);   // เลือกเดือนแล้ว เติมปีปัจจุบันให้
+      if (dd.value && mm.value !== "" && yy.value && +dd.value > daysIn(+mm.value, +yy.value))
+        dd.value = String(daysIn(+mm.value, +yy.value));                     // 31 ก.พ. → วันสุดท้ายของเดือน
+      var full = dd.value && mm.value !== "" && yy.value;
+      el.value = full ? dd.value + " " + MONTHS[+mm.value] + " " + yy.value : "";
+      w.classList.toggle("empty", !full);
+      refresh();
+    }
+    function toSelects() {
+      var p = parseThaiDate(el.value);
+      if (p) { ensureYear(p.y); dd.value = String(p.d); mm.value = String(p.m); yy.value = String(p.y); el.value = p.d + " " + MONTHS[p.m] + " " + p.y; }
+      else { dd.value = ""; mm.value = ""; yy.value = ""; }
+      w.classList.toggle("empty", !p);
+    }
+    [dd, mm, yy].forEach(function (s) { s.addEventListener("change", fromSelects); });
+    bt[0].addEventListener("click", function () { var n = nowBE(); ensureYear(n.y); dd.value = n.d; mm.value = n.m; yy.value = n.y; fromSelects(); });
+    bt[1].addEventListener("click", function () { dd.value = ""; mm.value = ""; yy.value = ""; fromSelects(); });
+    dateWidgets.push(toSelects);
   });
+  function syncDateWidgets() { dateWidgets.forEach(function (f) { f(); }); }
   document.querySelectorAll(".time-field").forEach(function (el) {
     el.addEventListener("blur", function () { if (el.value.trim()) { el.value = G.formatTime(el.value); refresh(); } });
   });
@@ -317,7 +370,7 @@
     var n = parseInt(String(d.round).replace(/[๐-๙]/g, function (c) { return "๐๑๒๓๔๕๖๗๘๙".indexOf(c); }), 10);
     $("round").value = isNaN(n) ? "1" : String(n + 1);
     ["inspectDate", "docDate", "timeStart", "timeEnd", "result"].forEach(function (f) { $(f).value = ""; });
-    clearPhotos(); refresh(); $("inspectDate").focus(); flash("ครั้งที่ " + $("round").value + " — กรอกวันที่/เวลา/ผลการตรวจใหม่");
+    syncDateWidgets(); clearPhotos(); refresh(); flash("ครั้งที่ " + $("round").value + " — กรอกวันที่/เวลา/ผลการตรวจใหม่");
   });
 
   // ---- สำรอง/นำเข้า/ล้าง ----
