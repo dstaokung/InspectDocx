@@ -68,7 +68,9 @@
                  background: var(--card-bg); display: flex; align-items: center; justify-content: center;
                  cursor: pointer; overflow: hidden; color: var(--text-faint); font-size: 15px; text-align: center; }
   .slot .frame.has { border-style: solid; border-color: var(--border); }
-  .slot .frame.drag { border-color: var(--accent); background: var(--accent-bg); }
+  .slot .frame.drag { border-color: var(--accent); background: var(--accent-bg); outline: 3px solid var(--accent); outline-offset: 2px; }
+  .slot .frame.has { cursor: grab; }
+  .slot.dragging { opacity: .4; }
   .slot canvas { width: 100%; height: 100%; display: block; }
   .slot .no { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,.55); color: #fff; font-size: 13px;
               border-radius: 4px; padding: 0 6px; }
@@ -156,7 +158,7 @@
       <div class="card">
         <h2>4. รูปถ่ายการออกตรวจ</h2>
         <p class="hint" style="margin:0 0 10px">ใส่ได้ไม่จำกัดจำนวน (สูงสุด 40) · ทุก 4 รูปได้หน้าบันทึกผลการตรวจงานจ้าง 1 ชุด โปรแกรมแบ่งให้เอง ·
-          รูปถูกตัดขอบให้พอดีกรอบ · คลิกที่รูปเพื่อเปลี่ยนรูป · <b>รูปไม่ถูกจำไว้</b> ปิดหน้าเว็บแล้วต้องใส่ใหม่</p>
+          รูปถูกตัดขอบให้พอดีกรอบ · <b>ลากรูปไปวางช่องอื่นเพื่อย้ายลำดับ</b> · คลิกที่รูปเพื่อเปลี่ยนรูป · <b>รูปไม่ถูกจำไว้</b> ปิดหน้าเว็บแล้วต้องใส่ใหม่</p>
         <div class="btns" style="margin:0 0 12px">
           <button class="btn" id="btnPickMany">เลือกหลายรูปพร้อมกัน</button>
           <button class="btn btn-danger" id="btnClearPhotos">ลบรูปทั้งหมด</button>
@@ -198,7 +200,7 @@
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="hint" style="margin:10px 0 0">ช่องที่เว้นว่าง จะออกเป็น "......" <span style="color:var(--red)">ตัวอักษรสีแดง</span> ในไฟล์ ให้เห็นว่าต้องกลับมาแก้</p>
       </div>
-      <p class="ver">InspectDocx v1.4</p>
+      <p class="ver">InspectDocx v1.5</p>
     </div>
   </div>
 </div>
@@ -448,7 +450,15 @@
       drawSlot(i, el.querySelector("canvas"));
       frame.addEventListener("click", function () { file.click(); });
       file.addEventListener("change", function () { if (file.files[0]) loadFiles([file.files[0]], i, true); });
-      dropTarget(frame, function (fl) { loadFiles(fl, i, true); });
+      // ลากรูปนี้ไปวางช่องอื่นเพื่อย้ายลำดับ
+      frame.draggable = true;
+      frame.addEventListener("dragstart", function (e) {
+        dragFrom = i; el.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", "photo:" + i); } catch (err) {}
+      });
+      frame.addEventListener("dragend", function () { dragFrom = null; el.classList.remove("dragging"); });
+      dropTarget(frame, function (fl) { loadFiles(fl, i, true); }, function (from) { movePhoto(from, i); });
       el.querySelectorAll("[data-act]").forEach(function (b) {
         b.addEventListener("click", function () {
           var act = b.dataset.act;
@@ -469,17 +479,32 @@
         "<div>＋ เพิ่มรูป<br><small>คลิกเลือกได้หลายรูป หรือลากมาวาง</small></div></div>";
       var f = add.querySelector(".frame");
       f.addEventListener("click", function () { $("photoFileMany").click(); });
-      dropTarget(f, function (fl) { loadFiles(fl, photos.length, false); });
+      dropTarget(f, function (fl) { loadFiles(fl, photos.length, false); }, function (from) { movePhoto(from, photos.length - 1); });
       box.appendChild(add);
     }
     refresh();
   }
 
-  function dropTarget(frame, onFiles) {
-    frame.addEventListener("dragover", function (e) { e.preventDefault(); frame.classList.add("drag"); });
+  // ย้ายรูปจากลำดับ from ไปอยู่ลำดับ to (รูปอื่นเลื่อนตาม)
+  var dragFrom = null;
+  function movePhoto(from, to) {
+    if (from === to || from == null) return;
+    var item = photos.splice(from, 1)[0];
+    photos.splice(to, 0, item);
+    renderPhotos();
+  }
+
+  // รับได้ทั้ง "ไฟล์รูปจากเครื่อง" (onFiles) และ "รูปที่ลากมาจากช่องอื่นในหน้านี้" (onMove)
+  function dropTarget(frame, onFiles, onMove) {
+    frame.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = dragFrom !== null ? "move" : "copy";
+      frame.classList.add("drag");
+    });
     frame.addEventListener("dragleave", function () { frame.classList.remove("drag"); });
     frame.addEventListener("drop", function (e) {
       e.preventDefault(); frame.classList.remove("drag");
+      if (dragFrom !== null) { var from = dragFrom; dragFrom = null; if (onMove) onMove(from); return; }
       var fl = Array.prototype.filter.call(e.dataTransfer.files, function (f) { return /^image\//.test(f.type); });
       if (fl.length) onFiles(fl);
     });
