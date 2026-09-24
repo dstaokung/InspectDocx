@@ -80,7 +80,10 @@
   .datepick { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr auto auto; gap: 4px; }
   .datepick select { padding: 9px 4px; font-size: 16px; }
   .datepick .btn { padding: 4px 8px; font-size: 14px; white-space: nowrap; }
-  .datepick.empty select { color: var(--text-faint); }
+  .datepick.empty select, .timepick.empty select { color: var(--text-faint); }
+  .timepick { display: flex; align-items: center; gap: 6px; }
+  .timepick select { width: auto; min-width: 84px; padding: 9px 6px; font-size: 16px; }
+  .timepick .btn { padding: 4px 8px; font-size: 14px; margin-left: auto; }
 </style>
 </head>
 <body>
@@ -148,8 +151,8 @@
           <div><label>วันที่หนังสือ <span class="hint">(ว่าง = วันออกตรวจ)</span></label><input type="text" id="docDate" class="date-field"></div>
         </div>
         <div class="row2">
-          <div><label>ตั้งแต่เวลา <span class="hint">(9 หรือ 9.30)</span></label><input type="text" id="timeStart" class="time-field" placeholder="เช่น 09.00"></div>
-          <div><label>ถึงเวลา</label><input type="text" id="timeEnd" class="time-field" placeholder="เช่น 09.45"></div>
+          <div><label>ตั้งแต่เวลา</label><input type="text" id="timeStart" class="time-field"></div>
+          <div><label>ถึงเวลา</label><input type="text" id="timeEnd" class="time-field"></div>
         </div>
         <label>ผลการตรวจงานจ้าง <span class="hint">(ต่อท้ายด้วย "เป็นไปตามรูปแบบและสัญญาจ้างของ อบต.คลองด่าน" ให้เอง)</span></label>
         <textarea id="result" rows="3" placeholder="เช่น ผู้รับจ้างสามารถวางบ่อพัก ค.ส.ล. และการวางท่อระบายน้ำ ค.ส.ล."></textarea>
@@ -200,7 +203,7 @@
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="hint" style="margin:10px 0 0">ช่องที่เว้นว่าง จะออกเป็น "......" <span style="color:var(--red)">ตัวอักษรสีแดง</span> ในไฟล์ ให้เห็นว่าต้องกลับมาแก้</p>
       </div>
-      <p class="ver">InspectDocx v1.5</p>
+      <p class="ver">InspectDocx v1.6</p>
     </div>
   </div>
 </div>
@@ -291,10 +294,37 @@
     bt[1].addEventListener("click", function () { dd.value = ""; mm.value = ""; yy.value = ""; fromSelects(); });
     dateWidgets.push(toSelects);
   });
-  function syncDateWidgets() { dateWidgets.forEach(function (f) { f(); }); }
+  // ---- ช่องเวลา: เลือก ชั่วโมง . นาที (นาทีทีละ 5) — ค่าจริงใน <input hidden> รูปแบบ "09.45" ----
+  function two(n) { return (n < 10 ? "0" : "") + n; }
   document.querySelectorAll(".time-field").forEach(function (el) {
-    el.addEventListener("blur", function () { if (el.value.trim()) { el.value = G.formatTime(el.value); refresh(); } });
+    el.type = "hidden";
+    var w = document.createElement("div"); w.className = "timepick";
+    var hs = "", ms = "";
+    for (var h = 0; h <= 23; h++) hs += opt(two(h), two(h));
+    for (var m = 0; m < 60; m += 5) ms += opt(two(m), two(m));
+    w.innerHTML = '<select class="hh" title="ชั่วโมง">' + opt("", "ชม.") + hs + "</select><span>.</span>" +
+      '<select class="mi" title="นาที">' + opt("", "นาที") + ms + "</select><span>น.</span>" +
+      '<button type="button" class="btn btn-danger" title="ล้างช่องนี้">✕</button>';
+    el.parentNode.insertBefore(w, el.nextSibling);
+    var hh = w.querySelector(".hh"), mi = w.querySelector(".mi");
+    function fromSelects() {
+      if (hh.value && !mi.value) mi.value = "00";          // เลือกชั่วโมงแล้ว นาทีเริ่มที่ 00
+      el.value = hh.value && mi.value ? hh.value + "." + mi.value : "";
+      w.classList.toggle("empty", !el.value);
+      refresh();
+    }
+    function toSelects() {
+      var t = G.formatTime(el.value || "").match(/^(\d{2})\.(\d{2})$/);
+      if (t && !mi.querySelector('option[value="' + t[2] + '"]')) mi.insertAdjacentHTML("beforeend", opt(t[2], t[2]));
+      hh.value = t ? t[1] : ""; mi.value = t ? t[2] : "";
+      el.value = t ? t[1] + "." + t[2] : "";
+      w.classList.toggle("empty", !t);
+    }
+    [hh, mi].forEach(function (x) { x.addEventListener("change", fromSelects); });
+    w.querySelector("button").addEventListener("click", function () { hh.value = ""; mi.value = ""; fromSelects(); });
+    dateWidgets.push(toSelects);
   });
+  function syncDateWidgets() { dateWidgets.forEach(function (f) { f(); }); }
   $("contractAmount").addEventListener("blur", function () {
     var el = $("contractAmount"); if (el.value.trim()) { el.value = G.formatMoney(el.value); refresh(); }
   });
