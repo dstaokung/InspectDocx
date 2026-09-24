@@ -172,23 +172,58 @@
       '</pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing>';
   }
 
+  // ---- หน้ารูปเพิ่มเติม (รูปที่เกินจำนวนกรอบในเทมเพลต) ----
+  // คัดลอก "ส่วนบันทึกผลการตรวจงานจ้าง" ทั้งส่วน (ตั้งแต่ย่อหน้าที่มีตัวแบ่งหน้าตัวแรก จนจบเอกสาร:
+  // หัวเรื่อง, ข้อมูลโครงการ, รายชื่อกรรมการ, ผลการตรวจ, กรอบรูป, ตารางผู้เข้าร่วมตรวจงาน)
+  // แล้วใส่รูปชุดถัดไปลงกรอบรูปของสำเนา — หน้าละเท่าจำนวนกรอบ (4 รูป)
+  // placeholder ในสำเนาถูกแทนค่าทีหลังพร้อมกับทั้งเอกสาร
+  function reportSectionTemplate(xml) {
+    var br = xml.indexOf('<w:br w:type="page"/>');
+    if (br < 0) return null;
+    var pStart = Math.max(xml.lastIndexOf("<w:p ", br), xml.lastIndexOf("<w:p>", br));
+    var end = xml.lastIndexOf("<w:sectPr");
+    if (pStart < 0 || end < pStart) return null;
+    var sec = xml.slice(pStart, end);
+    if (!DIAGRAM_DRAWING_RE.test(sec)) return null;
+    return sec.replace(/\sw14:(paraId|textId)="[^"]*"/g, "")
+              .replace(/<w:bookmark(Start|End)[^>]*\/>/g, "");   // กัน id ซ้ำ
+  }
+
   // photos = [ Uint8Array(JPEG) | null, ... ] ตามลำดับช่อง (ที่หน้าเว็บครอปพอดีกรอบมาแล้ว)
+  //   ช่อง 1..N (N = จำนวนกรอบในเทมเพลต) → วางแทน SmartArt ตำแหน่งเดิม (ช่องว่าง = กรอบขาวเปล่า)
+  //   ช่องที่เกิน N → สำเนาส่วนบันทึกผลการตรวจงานจ้างต่อท้ายเอกสาร ชุดละ N รูป (ข้ามช่องว่าง)
   function insertPhotos(zip, xml, photos) {
     var has = (photos || []).some(function (p) { return p && p.length; });
     if (!has) return Promise.resolve(xml);
     return readPhotoSlots(zip, xml).then(function (info) {
       if (!info || !info.slots.length) return xml;
+      var n = info.slots.length;
+      var section = reportSectionTemplate(xml);
       return zip.file("word/_rels/document.xml.rels").async("string").then(function (rels) {
-        var pics = info.slots.map(function (slot, i) {
-          var p = photos[i];
-          var ext = p && p.length ? "jpeg" : "png";
+        function addMedia(i, bytes) {
+          var ext = bytes && bytes.length ? "jpeg" : "png";
           var file = "inspect_photo" + (i + 1) + "." + ext;
-          zip.file("word/media/" + file, p && p.length ? p : base64ToBytes(BLANK_PNG_B64), { createFolders: false });
+          zip.file("word/media/" + file, bytes && bytes.length ? bytes : base64ToBytes(BLANK_PNG_B64), { createFolders: false });
           var rId = "rIdInspectPhoto" + (i + 1);
           rels = rels.replace("</Relationships>", '<Relationship Id="' + rId +
             '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + file + '"/></Relationships>');
-          return pictureXml(i, rId, slot, info.frame, "รูปที่ " + (i + 1));
+          return rId;
+        }
+        var pics = info.slots.map(function (slot, i) {
+          return pictureXml(i, addMedia(i, photos[i]), slot, info.frame, "รูปที่ " + (i + 1));
         });
+        var extraIdx = [];
+        for (var i = n; i < photos.length; i++) if (photos[i] && photos[i].length) extraIdx.push(i);
+        var extraXml = "";
+        if (extraIdx.length && section) {
+          for (var c = 0; c < extraIdx.length; c += n) {
+            var chunk = extraIdx.slice(c, c + n);
+            var ps = chunk.map(function (idx, k) {
+              return pictureXml(idx, addMedia(idx, photos[idx]), info.slots[k], info.frame, "รูปที่ " + (idx + 1));
+            });
+            extraXml += section.replace(DIAGRAM_DRAWING_RE, ps.join(""));
+          }
+        }
         zip.file("word/_rels/document.xml.rels", rels);
         return zip.file("[Content_Types].xml").async("string").then(function (ct) {
           [["jpeg", "image/jpeg"], ["png", "image/png"]].forEach(function (e) {
@@ -196,7 +231,9 @@
               ct = ct.replace("<Default ", '<Default Extension="' + e[0] + '" ContentType="' + e[1] + '"/><Default ');
           });
           zip.file("[Content_Types].xml", ct);
-          return xml.replace(DIAGRAM_DRAWING_RE, pics.join(""));
+          xml = xml.replace(DIAGRAM_DRAWING_RE, pics.join(""));
+          if (extraXml) { var at = xml.lastIndexOf("<w:sectPr"); xml = xml.slice(0, at) + extraXml + xml.slice(at); }
+          return xml;
         });
       });
     });
