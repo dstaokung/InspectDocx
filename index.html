@@ -77,10 +77,29 @@
   .slot .tools { display: flex; gap: 6px; margin-top: 6px; }
   .slot .tools .btn { flex: 1; padding: 5px 6px; font-size: 14px; }
   .slot.add .frame { min-height: 120px; }
-  .datepick { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr auto auto; gap: 4px; }
-  .datepick select { padding: 9px 4px; font-size: 16px; }
+  .datepick { position: relative; display: flex; gap: 4px; }
+  .datepick .dbtn { flex: 1; text-align: left; padding: 9px 12px; font-size: 16px; font-family: inherit; cursor: pointer;
+    border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--input-text); }
+  .datepick.empty .dbtn { color: var(--text-faint); }
   .datepick .btn { padding: 4px 8px; font-size: 14px; white-space: nowrap; }
-  .datepick.empty select, .timepick.empty select { color: var(--text-faint); }
+  .cal { position: absolute; top: 100%; left: 0; z-index: 50; margin-top: 4px; padding: 10px; width: 290px;
+    background: var(--card-bg); border: 1px solid var(--input-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  .cal[hidden] { display: none; }
+  .cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+  .cal-head .title { flex: 1; text-align: center; font-weight: 700; font-size: 16px; }
+  .cal-head button { border: 1px solid var(--input-border); background: var(--card-bg); color: var(--text); border-radius: 6px;
+    width: 32px; height: 32px; cursor: pointer; font-size: 15px; font-family: inherit; }
+  .cal-head button:hover { border-color: var(--accent); color: var(--accent); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+  .cal-grid .wd { font-size: 13px; color: var(--text-muted); padding: 2px 0; }
+  .cal-grid button { border: none; background: transparent; color: var(--text); border-radius: 6px; height: 34px;
+    font-size: 15px; font-family: inherit; cursor: pointer; }
+  .cal-grid button:hover { background: var(--accent-bg); }
+  .cal-grid button.today { outline: 1px solid var(--accent-light); }
+  .cal-grid button.sel { background: var(--accent); color: #fff; font-weight: 700; }
+  .cal-foot { display: flex; justify-content: space-between; margin-top: 8px; }
+  .cal-foot button { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 14px; font-family: inherit; padding: 4px 6px; }
+  .timepick.empty select { color: var(--text-faint); }
   .timepick { display: flex; align-items: center; gap: 6px; }
   .timepick select { width: auto; min-width: 84px; padding: 9px 6px; font-size: 16px; }
   .timepick .btn { padding: 4px 8px; font-size: 14px; margin-left: auto; }
@@ -256,53 +275,75 @@
     refresh();
   }
 
-  // ---- ช่องวันที่: เลือก วัน / เดือน / ปี พ.ศ. (กันพิมพ์ผิด) ----
+  // ---- ช่องวันที่: กดแล้วเปิดปฏิทินให้เลือก (ปี พ.ศ.) ----
   // ค่าจริงเก็บใน <input hidden id="..."> เป็นข้อความเต็ม เช่น "5 กันยายน 2568" (รูปแบบเดิม ข้อมูลเก่าใช้ต่อได้)
-  // เลือกไม่ครบ 3 ช่อง = ถือว่าว่าง
   var MONTHS = ConsDocxMonthYear.MONTHS;
+  var WD = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
   function nowBE() { var n = new Date(); return { d: n.getDate(), m: n.getMonth(), y: n.getFullYear() + 543 }; }
-  function daysIn(m, yBE) { return new Date(yBE - 543, m + 1, 0).getDate(); }
   function parseThaiDate(v) {
     var t = G.thaiDate(v || "").match(/^(\d{1,2}) (\S+) (\d{4})$/);
     if (!t || MONTHS.indexOf(t[2]) < 0) return null;
     return { d: +t[1], m: MONTHS.indexOf(t[2]), y: +t[3] };
   }
   function opt(v, text) { return '<option value="' + v + '">' + text + "</option>"; }
-  var dateWidgets = [];
+  var dateWidgets = [], openCal = null;
+  function closeCal() { if (openCal) { openCal.hidden = true; openCal = null; } }
+  document.addEventListener("click", function (e) { if (openCal && !openCal.parentNode.contains(e.target)) closeCal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeCal(); });
   document.querySelectorAll(".date-field").forEach(function (el) {
     el.type = "hidden";
-    var w = document.createElement("div"); w.className = "datepick";
-    var cy = nowBE().y, years = "";
-    for (var y = cy - 3; y <= cy + 3; y++) years += opt(y, y);
-    var days = ""; for (var d = 1; d <= 31; d++) days += opt(d, d);
-    w.innerHTML = '<select class="dd" title="วัน">' + opt("", "วัน") + days + "</select>" +
-      '<select class="mm" title="เดือน">' + opt("", "เดือน") + ConsDocxMonthYear.MONTH_ABBR.map(function (m, i) { return opt(i, m); }).join("") + "</select>" +
-      '<select class="yy" title="ปี พ.ศ.">' + opt("", "ปี พ.ศ.") + years + "</select>" +
-      '<button type="button" class="btn" title="ใส่วันที่วันนี้">วันนี้</button>' +
-      '<button type="button" class="btn btn-danger" title="ล้างช่องนี้">✕</button>';
+    var w = document.createElement("div"); w.className = "datepick empty";
+    w.innerHTML = '<button type="button" class="dbtn" title="เลือกวันที่จากปฏิทิน">📅 เลือกวันที่</button>' +
+      '<button type="button" class="btn btn-danger" title="ล้างช่องนี้">✕</button>' +
+      '<div class="cal" hidden></div>';
     el.parentNode.insertBefore(w, el.nextSibling);
-    var dd = w.querySelector(".dd"), mm = w.querySelector(".mm"), yy = w.querySelector(".yy");
-    var bt = w.querySelectorAll("button");
-    function ensureYear(y) { if (y && !yy.querySelector('option[value="' + y + '"]')) yy.insertAdjacentHTML("beforeend", opt(y, y)); }
-    function fromSelects() {
-      if (mm.value !== "" && yy.value === "") yy.value = String(nowBE().y);   // เลือกเดือนแล้ว เติมปีปัจจุบันให้
-      if (dd.value && mm.value !== "" && yy.value && +dd.value > daysIn(+mm.value, +yy.value))
-        dd.value = String(daysIn(+mm.value, +yy.value));                     // 31 ก.พ. → วันสุดท้ายของเดือน
-      var full = dd.value && mm.value !== "" && yy.value;
-      el.value = full ? dd.value + " " + MONTHS[+mm.value] + " " + yy.value : "";
-      w.classList.toggle("empty", !full);
-      refresh();
-    }
-    function toSelects() {
+    var dbtn = w.querySelector(".dbtn"), clr = w.querySelector(".btn"), cal = w.querySelector(".cal");
+    var view = { m: 0, y: 0 };
+    function show() {
       var p = parseThaiDate(el.value);
-      if (p) { ensureYear(p.y); dd.value = String(p.d); mm.value = String(p.m); yy.value = String(p.y); el.value = p.d + " " + MONTHS[p.m] + " " + p.y; }
-      else { dd.value = ""; mm.value = ""; yy.value = ""; }
       w.classList.toggle("empty", !p);
+      dbtn.textContent = "📅 " + (p ? p.d + " " + MONTHS[p.m] + " " + p.y : "เลือกวันที่");
     }
-    [dd, mm, yy].forEach(function (s) { s.addEventListener("change", fromSelects); });
-    bt[0].addEventListener("click", function () { var n = nowBE(); ensureYear(n.y); dd.value = n.d; mm.value = n.m; yy.value = n.y; fromSelects(); });
-    bt[1].addEventListener("click", function () { dd.value = ""; mm.value = ""; yy.value = ""; fromSelects(); });
-    dateWidgets.push(toSelects);
+    function setDate(d, m, y) { el.value = d ? d + " " + MONTHS[m] + " " + y : ""; show(); closeCal(); refresh(); }
+    function render() {
+      var p = parseThaiDate(el.value), t = nowBE();
+      var first = new Date(view.y - 543, view.m, 1).getDay(), n = new Date(view.y - 543, view.m + 1, 0).getDate();
+      var h = '<div class="cal-head"><button type="button" data-a="py" title="ปีก่อน">«</button><button type="button" data-a="pm" title="เดือนก่อน">‹</button>' +
+        '<div class="title">' + MONTHS[view.m] + " " + view.y + '</div>' +
+        '<button type="button" data-a="nm" title="เดือนถัดไป">›</button><button type="button" data-a="ny" title="ปีถัดไป">»</button></div><div class="cal-grid">';
+      WD.forEach(function (x) { h += '<div class="wd">' + x + "</div>"; });
+      for (var i = 0; i < first; i++) h += "<span></span>";
+      for (var d = 1; d <= n; d++) {
+        var c = (p && p.d === d && p.m === view.m && p.y === view.y ? " sel" : "") + (t.d === d && t.m === view.m && t.y === view.y ? " today" : "");
+        h += '<button type="button" data-d="' + d + '" class="' + c.trim() + '">' + d + "</button>";
+      }
+      cal.innerHTML = h + '</div><div class="cal-foot"><button type="button" data-a="today">วันนี้</button><button type="button" data-a="clear">ล้าง</button></div>';
+    }
+    dbtn.addEventListener("click", function () {
+      if (openCal === cal) { closeCal(); return; }
+      closeCal();
+      var p = parseThaiDate(el.value) || nowBE(); view = { m: p.m, y: p.y };
+      render(); cal.hidden = false; openCal = cal;
+    });
+    cal.addEventListener("click", function (e) {
+      e.stopPropagation();   // ปุ่มถูกวาดใหม่ทุกครั้ง ถ้าไม่หยุด document จะนึกว่าคลิกนอกปฏิทินแล้วปิด
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.d) { setDate(+b.dataset.d, view.m, view.y); return; }
+      var a = b.dataset.a;
+      if (a === "pm") { view.m--; if (view.m < 0) { view.m = 11; view.y--; } }
+      else if (a === "nm") { view.m++; if (view.m > 11) { view.m = 0; view.y++; } }
+      else if (a === "py") view.y--;
+      else if (a === "ny") view.y++;
+      else if (a === "today") { var n = nowBE(); setDate(n.d, n.m, n.y); return; }
+      else if (a === "clear") { setDate(0); return; }
+      render();
+    });
+    clr.addEventListener("click", function () { setDate(0); });
+    dateWidgets.push(function () {
+      var p = parseThaiDate(el.value);
+      if (p) el.value = p.d + " " + MONTHS[p.m] + " " + p.y;
+      show();
+    });
   });
   // ---- ช่องเวลา: เลือก ชั่วโมง . นาที (นาทีทีละ 5) — ค่าจริงใน <input hidden> รูปแบบ "09.45" ----
   function two(n) { return (n < 10 ? "0" : "") + n; }
