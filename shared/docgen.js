@@ -354,6 +354,8 @@
       "[วงเงินตัวเลข]": orBlank(money ? formatMoney(money) : ""),
       "[วงเงินตัวอักษร]": orBlank(money ? bahtText(money) : ""),
       "[ผู้รับจ้าง]": orBlank(v("contractor")),
+      "[วิธีจัดจ้าง]": orBlank(v("procMethod")),
+      "[ชื่อนายช่างผู้ควบคุมงาน]": orBlank(v("supervisor")),
       "[ชื่อโครงการ]": orBlank(v("projectName").replace(/\s*\n\s*/g, " ")),
       "[วันที่ออกตรวจ]": orBlank(inspectDate),
       "[เวลาเริ่ม]": orBlank(formatTime(v("timeStart"))),

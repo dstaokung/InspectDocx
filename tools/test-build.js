@@ -12,7 +12,7 @@ const FULL = {
   round: "3", docDate: "", inspectDate: "5/9/2568", timeStart: "9", timeEnd: "9.45",
   orderNo: "655/2568", orderDate: "7 พ.ค. 68",
   contractNo: "27/2568", contractDate: "1/7/2568", startDate: "2/7/68", endDate: "28/12/2568",
-  contractAmount: "4867000", contractor: "บริษัท รุ่งสิริวัฒน์ จำกัด",
+  contractAmount: "4867000", contractor: "บริษัท รุ่งสิริวัฒน์ จำกัด", procMethod: "วิธีเฉพาะเจาะจง", supervisor: "นายสมชาย  ใจดี",
   projectName: "โครงการก่อสร้างถนน ค.ส.ล. พร้อมวางท่อระบายน้ำ ซอยหม้อน้ำ หมู่ที่ 2",
   prefix1: "", name1: "นางมาลัย  เลิศฤทธิ์",
   prefix2: "ว่าที่ร้อยตรี", name2: "คมสรร  เครือศรี",
@@ -47,7 +47,7 @@ const MANY = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2].map(img);
       // สำเนาส่วนบันทึกผลการตรวจงานจ้าง: ตัวแบ่งหน้า 1 (เดิม) + 2 (สำเนา), หัวเรื่อง/ตารางผู้เข้าร่วม 3 ชุด
       const txt = G.getParaTextAll(xml);
       const brs = (xml.match(/<w:br w:type="page"\/>/g) || []).length;
-      const heads = (txt.match(/^บันทึกผลการตรวจงานจ้าง$/gm) || []).length;
+      const heads = (txt.match(/^บันทึกออกตรวจงานจ้าง$/gm) || []).length;
       const parts = (txt.match(/ผู้เข้าร่วมตรวจงาน/g) || []).length;
       const ok = brs === 3 && heads === 3 && parts === 3;
       console.log(`${ok ? "ok  " : "FAIL"} many: ตัวแบ่งหน้า ${brs}, หัวเรื่อง ${heads}, ตารางผู้เข้าร่วม ${parts} (คาด 3/3/3)`);

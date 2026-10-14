@@ -100,6 +100,14 @@
         <textarea id="projectName" rows="2" placeholder="เช่น โครงการก่อสร้างถนน ค.ส.ล. ... หมู่ที่ 2"></textarea>
         <label>ผู้รับจ้าง</label>
         <input type="text" id="contractor" placeholder="เช่น บริษัท ... จำกัด / หจก. ...">
+        <label>วิธีจัดจ้าง</label>
+        <select id="procMethod">
+          <option value="วิธีเฉพาะเจาะจง">วิธีเฉพาะเจาะจง</option>
+          <option value="วิธีคัดเลือก">วิธีคัดเลือก</option>
+          <option value="วิธีประกวดราคาอิเล็กทรอนิกส์">วิธีประกวดราคาอิเล็กทรอนิกส์ (e-bidding)</option>
+          <option value="วิธีประกวดราคา">วิธีประกวดราคา</option>
+          <option value="วิธีสอบราคา">วิธีสอบราคา</option>
+        </select>
         <div class="row2">
           <div><label>สัญญาจ้างเลขที่</label><input type="text" id="contractNo" placeholder="เช่น 27/2568"></div>
           <div><label>ลงวันที่ </label><input type="text" id="contractDate" class="date-field"></div>
@@ -134,6 +142,8 @@
           <div><label>คำนำหน้า/ยศ</label><input type="text" id="prefix3" list="prefixList" placeholder="(ไม่มี ปล่อยว่าง)"></div>
           <div><label>ชื่อ-สกุล</label><input type="text" id="name3" list="nameList" placeholder="เช่น นายกำชัย  ทองสุทธิ์"></div>
         </div>
+        <label>ชื่อนายช่างผู้ควบคุมงาน <span class="hint">(ของ อบต. — ใส่คำนำหน้าด้วย)</span></label>
+        <input type="text" id="supervisor" placeholder="เช่น นายสมชาย  ใจดี">
         <div class="note">
           <b>คำนำหน้า/ยศ</b> เช่น ว่าที่ร้อยตรี — ในเอกสารจะวางไว้หน้าลายเซ็น และต่อหน้าชื่อในรายชื่อกรรมการ
           ถ้าไม่มีให้ปล่อยว่าง (จะว่างไว้ในเอกสาร) · คนที่ไม่มียศ ใส่ นาย/นาง/นางสาว ไว้ในช่องชื่อ-สกุล
@@ -225,12 +235,12 @@
   var G = window.InspectDocGen;
   var KEY_AUTO = "inspectdocx_autosave";
   var KEY_SAVED = "inspectdocx_projects";
-  var FIELDS = ["projectName", "contractor", "contractNo", "contractDate", "startDate", "endDate",
+  var FIELDS = ["projectName", "contractor", "procMethod", "supervisor", "contractNo", "contractDate", "startDate", "endDate",
     "contractAmount", "orderNo", "orderDate",
     "prefix1", "name1", "prefix2", "name2", "prefix3", "name3",
     "round", "inspectDate", "docDate", "timeStart", "timeEnd", "result"];
   var LABELS = {
-    projectName: "ชื่อโครงการ", contractor: "ผู้รับจ้าง", contractNo: "เลขที่สัญญา", contractDate: "วันที่สัญญา",
+    projectName: "ชื่อโครงการ", contractor: "ผู้รับจ้าง", procMethod: "วิธีจัดจ้าง", supervisor: "ชื่อนายช่างผู้ควบคุมงาน", contractNo: "เลขที่สัญญา", contractDate: "วันที่สัญญา",
     startDate: "วันเริ่มสัญญา", endDate: "วันสิ้นสุดสัญญา", contractAmount: "วงเงินจ้าง", orderNo: "เลขที่คำสั่ง",
     orderDate: "วันที่คำสั่ง", name1: "ชื่อประธาน", name2: "ชื่อกรรมการคนที่ 2", name3: "ชื่อกรรมการคนที่ 3",
     round: "ครั้งที่", inspectDate: "วันที่ออกตรวจ", timeStart: "เวลาเริ่ม", timeEnd: "เวลาสิ้นสุด", result: "ผลการตรวจ",
@@ -241,7 +251,7 @@
 
   function getData() { var d = {}; FIELDS.forEach(function (f) { d[f] = $(f).value; }); return d; }
   function setData(d) {
-    FIELDS.forEach(function (f) { $(f).value = d && d[f] != null ? d[f] : ""; });
+    FIELDS.forEach(function (f) { $(f).value = d && d[f] != null ? d[f] : (f === "procMethod" ? "วิธีเฉพาะเจาะจง" : ""); });
     syncDateWidgets();
     refresh();
   }
